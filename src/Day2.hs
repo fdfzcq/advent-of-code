@@ -4,14 +4,19 @@ import Prelude hiding (lookup)
 import qualified Data.Map as Map
 
 -- part 2
-part_2 :: [Int] ->
+part_2 :: [Int] -> Int
 part_2 xs =
-  let (noun, verb) = find_val 99 99 xs
+  let noun0 = 99
+      verb0 = 99
+      (noun, verb) = find_val noun0 verb0 xs
   in 100 * noun + verb
 
-find_val :: Int -> Int -> [Int]
-find_val noun verb xs =
-  
+find_val :: Int -> Int -> [Int] -> (Int, Int)
+find_val noun verb xs
+  | output == 19690720 = (noun, verb)
+  | output < 19690720 = do find_val 99 (verb - 1) xs
+  | output > 19690720 = do find_val (noun - 1) verb xs
+  where output = process_list noun verb xs  
 
 process_list :: Int -> Int -> [Int] -> Int
 process_list noun verb xs =
