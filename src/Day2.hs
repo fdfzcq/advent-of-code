@@ -16,7 +16,7 @@ find_val noun verb xs
   | output == 19690720 = (noun, verb)
   | output < 19690720 = do find_val 99 (verb - 1) xs
   | output > 19690720 = do find_val (noun - 1) verb xs
-  where output = process_list noun verb xs  
+  where output = process_list noun verb xs
 
 process_list :: Int -> Int -> [Int] -> Int
 process_list noun verb xs =
@@ -31,7 +31,7 @@ process1 xs =
   process_list 12 2 xs
 
 do_part_1 :: Map.Map Int Int -> Int -> Int
-do_part_1 map n = do
+do_part_1 map n =
   case map_lookup n map of
     99 -> do
       map_lookup 0 map
@@ -45,12 +45,30 @@ do_part_1 map n = do
       in do_part_1 (Map.insert i a map) (n + 4)
 
 map_lookup :: Int -> Map.Map Int Int -> Int
-map_lookup n map = do
-  case Map.lookup n map of
-    (Just value) -> value
-    Nothing -> 0
+map_lookup n map = Maybe.fromMaybe 0 (Map.lookup n map)
 
 do_calc :: Int -> Int -> Int -> Int
 do_calc a1 a2 t
   | t == 1 = a1 + a2
   | t == 2 = a1 * a2
+
+-- let a = b in c             (\a -> c) b
+-- do a <- b; c               (b >>= \a -> c)
+
+-- interface Monad<M<_>> {
+--   <A, B> bind(this: M<A>, fn: (A) -> M<B>): M<B>,
+--   <A> return(value: A): M<A>
+--                       }
+
+-- class Monad<Maybe<_>> {
+--   bind(this: Maybe<A>, fn: (A) -> Maybe<B>): Maybe<B>
+--                       }
+
+-- class Monad {
+--   bind(this: Monad<A>, fn: (A) -> Monad<B>): Monad<B>
+--                }
+
+-- Maybe(1).bind(x -> [1])
+
+-- type positive_int = { i:int | i >= 0 }
+-- type sameTuple = { (i1:int, i2:int) | i1 == i2 }
