@@ -7,119 +7,110 @@ import qualified Data.Int as Int
 
 -- day 7
 
-type ComputerState = (Program, Inputs, Outputs, Pointer, RelativeBase)
+data ComputerState = ComputerState
+  { program :: Program
+  , inputs :: Inputs
+  , outputs :: Outputs
+  , pointer :: Pointer
+  , relativeBase :: RelativeBase
+  } deriving Show
+
 type Program = Map.Map Int Int
 type RelativeBase = Int
 type Pointer = Int
 type Inputs = [Int]
 type Outputs = [Int]
+
 type State = Map.Map Int ComputerState
+
+init_index = 0
+last_index = 4
+
+-- used in Day7 --
 
 stateful_process :: State -> Outputs
 stateful_process state
-  | pointer4 == (-1) =
-    let (_, inputs, _, _, _) = state_lookup 0 state
-    in inputs
+  | pointer cs4 == (-1) =
+    let cs = state_lookup init_index state
+    in inputs cs
   | otherwise =
     let newState0 = Map.map (\s -> process_until_halt s) state
-        newState1 = fill_inputs newState0 4
+        newState1 = fill_inputs newState0 last_index
     in stateful_process newState1
-  where (_, _, outputs4, pointer4, rb4) = state_lookup 4 state
-
-process_until_halt :: ComputerState -> ComputerState
-process_until_halt (program, i, o, p, r)
-  | opCode == 99 = (program, i, o, (-1), r)
-  | (handle_op opCode (program, i, o, p, r)) == (program, i, o, p, r) =
-      (program, i, o, p, r)
-  | otherwise =
-    let newState = handle_op opCode (program, i, o, p, r)
-    in process_until_halt newState
-  where opCode = program_lookup p program
+  where cs4 = state_lookup last_index state
 
 fill_inputs :: State -> Int -> State
 fill_inputs state (-1) = state
 fill_inputs state n =
-  let (p1, i1, outputs, po1, rb1) = state_lookup n state
+  let cs1 = state_lookup n state
       next = next_amp n
       oldComp = state_lookup next state
-      (p, oldInputs, o, po, rb) = oldComp
-      newComp = (p, outputs, o, po, rb)
+      oldCs = oldComp
+      newComp = oldComp {inputs = (outputs cs1)}
       newState0 = Map.insert next newComp state
-      newState1 = Map.insert n (p1, i1, [], po1, rb1) newState0
+      newState1 = Map.insert n (cs1 {outputs = []}) newState0
   in fill_inputs newState1 (n - 1)
 
-next_amp :: Int -> Int
-next_amp n
-  | n == 4 = 0
-  | otherwise = (n + 1)
+-------------------
 
-maybe_jump :: Bool -> Int -> Int -> Int
-maybe_jump True n val = val
-maybe_jump False n val = n + 3
+process_until_halt :: ComputerState -> ComputerState
+process_until_halt cs
+  | (program cs == program newCs) && (pointer cs == pointer newCs) = cs
+  | (pointer cs) == (-1) = cs
+  | otherwise = process_until_halt newCs
+  where opCode = program_lookup (pointer cs) (program cs)
+        newCs = handle_op opCode cs
 
 handle_op :: Int -> ComputerState -> ComputerState
-handle_op opCode (program, inputs, outputs, pointer, relativeBase)
+handle_op opCode cs
+  | opCode == 99 =
+      cs {pointer = (-1)}
   | (op == 1) || (op == 2) =
-      let mode1 = digit 1 opCode
-          mode2 = digit 2 opCode
-          mode3 = digit 3 opCode
-          index1 = loc_and_rel_base mode1 (pointer + 1) program relativeBase
-          val1 = program_lookup index1 program
-          index2 = loc_and_rel_base mode2 (pointer + 2) program relativeBase
-          val2 = program_lookup index2 program
-          position = loc_and_rel_base mode3 (pointer + 3) program relativeBase
+      let val1 = read_value opCode cs 1
+          val2 = read_value opCode cs 2
           value = do_calc val1 val2 op
-          newProgram = Map.insert position value program
-      in (newProgram, inputs, outputs, pointer + 4, relativeBase)
-  | (op == 3) && (inputs == []) =
-      (program, inputs, outputs, pointer, relativeBase)
+          newProgram = write_value value opCode cs 3
+      in cs { pointer = (pointer cs) + 4
+            , program = newProgram }
+  | (op == 3) && ((inputs cs) == []) =
+      cs
   | op == 3 =
-      let mode = digit 1 opCode
-          position = loc_and_rel_base mode (pointer + 1) program relativeBase
-          newProgram = Map.insert position (head inputs) program
-      in (newProgram, tail inputs, outputs, pointer + 2, relativeBase)
+      let input = head (inputs cs)
+          newProgram = write_value input opCode cs 1
+      in cs { program = newProgram
+            , inputs = tail (inputs cs)
+            , pointer = (pointer cs) + 2 }
   | op == 4 =
-      let mode = digit 1 opCode
-          position = loc_and_rel_base mode (pointer + 1) program relativeBase
-          value = program_lookup position program
-      in (program, inputs, outputs ++ [value], pointer + 2, relativeBase)
+      let value = read_value opCode cs 1
+      in cs { outputs = (outputs cs) ++ [value]
+            , pointer = (pointer cs) + 2 }
   | (op == 5) || (op == 6) =
-      let mode1 = digit 1 opCode
-          mode2 = digit 2 opCode
-          location1 = loc_and_rel_base mode1 (pointer + 1) program relativeBase
-          val1 = program_lookup location1 program
-          location2 = loc_and_rel_base mode2 (pointer + 2) program relativeBase
-          val2 = program_lookup location2 program
+      let val1 = read_value opCode cs 1
+          val2 = read_value opCode cs 2
           should_jump = case op of
                           5 -> val1 /= 0
                           6 -> val1 == 0
-          newPointer = maybe_jump should_jump pointer val2
-      in (program, inputs, outputs, newPointer, relativeBase)
+          newPointer = maybe_jump should_jump (pointer cs) val2
+      in cs { pointer = newPointer }
   | (op == 7) || (op == 8) =
-      let mode1 = digit 1 opCode
-          mode2 = digit 2 opCode
-          mode3 = digit 3 opCode
-          index1 = loc_and_rel_base mode1 (pointer + 1) program relativeBase
-          val1 = program_lookup index1 program
-          index2 = loc_and_rel_base mode2 (pointer + 2) program relativeBase
-          val2 = program_lookup index2 program
-          position = loc_and_rel_base mode3 (pointer + 3) program relativeBase
-          value = get_value_op_7_8 op val1 val2
-          newProgram = Map.insert position value program
-      in (newProgram, inputs, outputs, pointer + 4, relativeBase)
+      let val1 = read_value opCode cs 1
+          val2 = read_value opCode cs 2
+          value = binary_op op val1 val2
+          newProgram = write_value value opCode cs 3
+      in cs { program = newProgram
+            , pointer = (pointer cs) + 4 }
   | (op == 9) =
-      let mode = digit 1 opCode
-          index = loc_and_rel_base mode (pointer + 1) program relativeBase
-          val = program_lookup index program
-      in (program, inputs, outputs, pointer + 2, relativeBase + val)
-  | otherwise = (program, inputs, outputs, pointer, relativeBase)
+      let val = read_value opCode cs 1
+      in cs { pointer = (pointer cs) + 2
+            , relativeBase = (relativeBase cs) + val }
+  | otherwise = cs
   where op = opCode `rem` 10
 
-get_value_op_7_8 :: Int -> Int -> Int -> Int
-get_value_op_7_8 7 val1 val2
+binary_op :: Int -> Int -> Int -> Int
+binary_op 7 val1 val2
   | val1 < val2 = 1
   | otherwise = 0
-get_value_op_7_8 8 val1 val2
+binary_op 8 val1 val2
   | val1 == val2 = 1
   | otherwise = 0
 
@@ -128,8 +119,8 @@ digit :: Int -> Int -> Int
 digit n number =
   (number `rem` (100 * (10 ^ n))) `div` (10 * (10 ^ n))
 
-loc_and_rel_base :: Int -> Int -> Map.Map Int Int -> Int -> Int
-loc_and_rel_base mode i map rb
+locate :: Int -> Int -> Map.Map Int Int -> Int -> Int
+locate mode i map rb
   | mode == 0 = program_lookup i map
   | mode == 1 = i
   | mode == 2 = rb + (program_lookup i map)
@@ -148,14 +139,41 @@ program_lookup :: Int -> Map.Map Int Int -> Int
 program_lookup n map  =
   Maybe.fromMaybe 0 (Map.lookup n map)
 
+next_amp :: Int -> Int
+next_amp n
+  | n == 4 = 0
+  | otherwise = (n + 1)
+
+maybe_jump :: Bool -> Int -> Int -> Int
+maybe_jump True n val = val
+maybe_jump False n val = n + 3
+
+read_value :: Int -> ComputerState -> Int -> Int
+read_value opCode cs i =
+  let mode = digit i opCode
+      point = pointer cs
+      index = locate mode (point + i) (program cs) (relativeBase cs)
+  in program_lookup index (program cs)
+
+write_value :: Int -> Int -> ComputerState -> Int -> Program
+write_value value opCode cs i =
+  let mode = digit i opCode
+      point = pointer cs
+      index = locate mode (point + i) (program cs) (relativeBase cs)
+  in Map.insert index value (program cs)
+
 -- part 1
 process :: [Int] -> [Int] -> Outputs
 process xs inputs =
   let zippedList = zip [0..] xs
-      program = Map.fromList zippedList
-      computerState = (program, inputs, [], 0, 0)
-      (_, _, outputs, _, _) = process_until_halt computerState
-  in outputs
+      prog = Map.fromList zippedList
+      computerState = ComputerState { program = prog
+                                    , inputs = inputs
+                                    , outputs = []
+                                    , pointer = 0
+                                    , relativeBase = 0 }
+      newCs = process_until_halt computerState
+  in outputs newCs
 
 -- do_process :: Map.Map Int Int ->
 -- Int -> [Int] -> [Int] -> [Int]
