@@ -31,9 +31,9 @@ to_initial_state phases program =
 
 init_state :: Int -> Map.Map Int Int -> [Int] -> (Int, ComputerState)
 init_state 0 program phases =
-  (0, (program, [phases!!0] ++ initialInput, [], 0))
+  (0, (program, [phases!!0] ++ initialInput, [], 0, 0))
 init_state n program phases =
-  (n, (program, [phases!!n], [], 0))
+  (n, (program, [phases!!n], [], 0, 0))
 
 -- for part 1
 
