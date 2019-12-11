@@ -162,16 +162,20 @@ write_value value opCode cs i =
       index = locate mode (point + i) (program cs) (relativeBase cs)
   in Map.insert index value (program cs)
 
+initial_computer_state :: [Int] -> [Int] -> ComputerState
+initial_computer_state xs inputs =
+  let zippedList = zip [0..] xs
+      prog = Map.fromList zippedList
+  in ComputerState { program = prog
+                   , inputs = inputs
+                   , outputs = []
+                   , pointer = 0
+                   , relativeBase = 0 }
+
 -- part 1
 process :: [Int] -> [Int] -> Outputs
 process xs inputs =
-  let zippedList = zip [0..] xs
-      prog = Map.fromList zippedList
-      computerState = ComputerState { program = prog
-                                    , inputs = inputs
-                                    , outputs = []
-                                    , pointer = 0
-                                    , relativeBase = 0 }
+  let computerState = initial_computer_state xs inputs
       newCs = process_until_halt computerState
   in outputs newCs
 
